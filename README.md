@@ -50,13 +50,13 @@ La simulazione è basata su una distribuzione gaussiana dei **log-rendimenti men
 
 ## Collaborazione
 
-Questa applicazione è stata realizzata da Andrea Palladino in collaborazione con **ChatGPT 5 Pro**, che ha effettuato la progettazione e lo sviluppo del codice sulla base del seguente prompt:
+Questa applicazione è stata realizzata da Andrea Palladino in collaborazione con **ChatGPT 5 Plus**, che ha effettuato la progettazione e lo sviluppo del codice sulla base del seguente prompt:
 
 > *Crea un'applicazione a pagina singola in un unico file HTML con i seguenti requisiti:  
 > Nome: Simulatore Monte Carlo di un PAC  
 > - Obiettivo: Simulare l'andamento di un PAC usando una simulazione Monte Carlo. Mostrare fra i risultati grafici l'evoluzione del capitale, la distribuzione del capitale finale e la distribuzione dei massimi drawdown realizzati durante l'investimento. Mostrare fra i risultati testuali il capitale versato, il valore mediano finale dell'investimento e l'intervallo al 95%, il valore mediano del drawdown e l'intervallo al 95%. Indica anche la probabilità di recuperare meno di quanto si è investito al termine dell'investimento.  
 > - Funzioni: Dare la possibilità all'utente di inserire il versamento iniziale, il versamento mensile, il numero di anni che è disposto a investire, il rendimento annuo medio atteso, la deviazione standard attesa, la tassazione (possibile scelta tra 0%, 12.5% e 26%), il numero di simulazioni Monte Carlo. Dare la possibilità di inserire l'adeguamento della quota mensile all'inflazione. Ricordati che è la distribuzione dei log-rendimenti ad essere gaussiana, non quella dei rendimenti.  
-> - L'interfaccia utente deve essere pulita, con testo ad alto contrasto, di facile utilizzo ma accattivante. L'area in cui l'utente inserirà i suoi input deve essere ben separata dall'area in cui verranno mostrati i risultati testuali e grafici. Inserisci in basso "Credit: Andrea Palladino e GPT-5 Pro" e inserisci una nota per spiegare in che modo viene effettuata la simulazione Monte Carlo.*
+> - L'interfaccia utente deve essere pulita, con testo ad alto contrasto, di facile utilizzo ma accattivante. L'area in cui l'utente inserirà i suoi input deve essere ben separata dall'area in cui verranno mostrati i risultati testuali e grafici. Inserisci in basso "Credit: Andrea Palladino e GPT-5 Plus" e inserisci una nota per spiegare in che modo viene effettuata la simulazione Monte Carlo.*
 
 
 ---
@@ -73,7 +73,7 @@ Questa applicazione è stata realizzata da Andrea Palladino in collaborazione co
 
 ## Crediti
 
-**Credit:** Dr. Andrea Palladino e ChatGPT 5 Pro.
+**Credit:** Dr. Andrea Palladino e ChatGPT 5 Plus.
 
 ---
 

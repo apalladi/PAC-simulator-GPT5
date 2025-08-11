@@ -71,3 +71,5 @@ Questa applicazione è stata realizzata da Andrea Palladino in collaborazione co
 ---
 
 > **Nota:** Questo simulatore fornisce stime statistiche basate su un modello semplificato e non rappresenta una previsione certa o una consulenza finanziaria.
+
+![Descrizione immagine](dashboard.png)

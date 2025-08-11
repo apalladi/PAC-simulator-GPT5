@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Simulatore Monte Carlo - PAC (Log-rendimenti)</title>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  :root{
+    --bg:#0f1724;
+    --panel:#0b1b2b;
+    --accent:#1fb6ff;
+    --accent-2:#12b981;
+    --glass: rgba(255,255,255,0.04);
+    --muted: #9fb3c8;
+    --card:#071021;
+    --gold:#ffd166;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg,#071028 0%, #07243a 60%, #082033 100%);
+    color: #e6f0f6;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    padding:24px;
+  }
+
+  header{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-bottom:18px;
+  }
+  header h1{
+    margin:0;
+    font-size:20px;
+    letter-spacing:0.2px;
+  }
+  header p{margin:0;color:var(--muted);font-size:13px}
+
+  .layout{
+    display:grid;
+    grid-template-columns: 360px 1fr;
+    gap:20px;
+    align-items:start;
+  }
+
+  /* left: inputs */
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+    border-radius:12px;
+    padding:18px;
+    box-shadow: 0 8px 30px rgba(2,7,23,0.6);
+    border: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .section-title{
+    font-weight:700;
+    margin-bottom:8px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .muted{color:var(--muted);font-size:13px}
+
+  .form-row{
+    margin-top:12px;
+  }
+  label{
+    display:block;
+    font-size:13px;
+    color:#dff3ff;
+    margin-bottom:6px;
+    font-weight:600;
+  }
+
+  input[type="number"], select{
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.06);
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    color:#e9fbff;
+    font-size:14px;
+  }
+
+  .small{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:6px;
+  }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    margin-top:14px;
+  }
+  .btn{
+    flex:1;
+    padding:11px 14px;
+    background:linear-gradient(90deg,var(--accent),#2db6ff);
+    border:none;
+    color:#00121a;
+    font-weight:700;
+    border-radius:10px;
+    cursor:pointer;
+    box-shadow: 0 6px 18px rgba(27, 183, 255, 0.12);
+  }
+  .btn.secondary{
+    background:transparent;
+    color:var(--muted);
+    border:1px solid rgba(255,255,255,0.04);
+    box-shadow:none;
+  }
+
+  .toggle{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:8px;
+  }
+
+  /* right: results */
+  .results{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .panel{
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:12px;
+    padding:16px;
+    border:1px solid rgba(255,255,255,0.03);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+
+  .summary-grid{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .metric{
+    background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+    padding:12px;
+    border-radius:10px;
+    min-width:150px;
+    flex:1;
+    border:1px solid rgba(255,255,255,0.02);
+  }
+  .metric h3{margin:0;font-size:12px;color:var(--muted)}
+  .metric p{margin:6px 0 0 0;font-size:16px;font-weight:700;color:#ffffff}
+
+  canvas{
+    width:100% !important;
+    height:300px !important;
+  }
+
+  .loader{
+    display:inline-flex;
+    gap:8px;
+    align-items:center;
+    padding:8px 10px;
+    background: rgba(255,255,255,0.02);
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.03);
+    font-size:13px;
+    color:var(--muted);
+  }
+
+  footer{
+    margin-top:18px;
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  @media (max-width:980px){
+    .layout{ grid-template-columns: 1fr; }
+    canvas{ height:240px !important; }
+  }
+
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Simulatore Monte Carlo — PAC (log-rendimenti)</h1>
+      <p class="muted">Simula il piano di accumulo usando log-rendimenti gaussiani, mostra distribuzione capitale finale e massimi drawdown.</p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- INPUT -->
+    <aside class="card" aria-label="Impostazioni simulazione">
+      <div class="section-title"><strong>Parametri del PAC</strong></div>
+
+      <div class="form-row">
+        <label for="initial">Versamento iniziale (€)</label>
+        <input id="initial" type="number" min="0" value="1000" />
+      </div>
+
+      <div class="form-row">
+        <label for="monthly">Versamento mensile (€)</label>
+        <input id="monthly" type="number" min="0" value="200" />
+        <div class="small">Puoi attivare l'adeguamento all'inflazione più sotto</div>
+      </div>
+
+      <div class="form-row">
+        <label for="years">Durata (anni)</label>
+        <input id="years" type="number" min="1" value="20" />
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:14px 0" />
+
+      <div class="section-title"><strong>Parametri mercato (annui)</strong></div>
+
+      <div class="form-row">
+        <label for="mean">Rendimento medio atteso annuo (%)</label>
+        <input id="mean" type="number" step="0.01" value="5.0" />
+      </div>
+
+      <div class="form-row">
+        <label for="stddev">Deviazione standard annua (%)</label>
+        <input id="stddev" type="number" step="0.01" value="12.0" />
+      </div>
+
+      <div class="form-row">
+        <label for="inflation">Inflazione annua (%)</label>
+        <input id="inflation" type="number" step="0.01" value="2.0" />
+      </div>
+
+      <div class="toggle">
+        <input id="applyInflation" type="checkbox" checked />
+        <label for="applyInflation" style="margin:0;color:var(--muted);font-size:13px">Adeguamento mensile all'inflazione</label>
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.03);margin:14px 0" />
+
+      <div class="form-row">
+        <label for="tax">Tassazione sui guadagni</label>
+        <select id="tax" style="color:#333; background-color:#fff;">
+  	  <option value="0">0%</option>
+  	  <option value="0.125">12.5%</option>
+  	  <option value="0.26">26%</option>
+	</select>
+      </div>
+
+      <div class="form-row">
+        <label for="simulations">Numero simulazioni</label>
+        <input id="simulations" type="number" min="100" step="100" value="2000" />
+        <div class="small">Attenzione: molte simulazioni possono richiedere qualche secondo.</div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="runBtn">Esegui simulazione</button>
+        <button class="btn secondary" id="resetBtn">Ripristina</button>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+        <div id="status" class="loader" style="display:none">
+          <svg width="16" height="16" viewBox="0 0 50 50" fill="none" aria-hidden><path d="M25 5a1 1 0 1 1 0 2 18 18 0 1 0 18 18 1 1 0 1 1 2 0 20 20 0 1 1-20-20z" fill="white" opacity="0.15"/></svg>
+          <span id="statusText">Simulazione in corso...</span>
+        </div>
+        <div style="color:var(--muted);font-size:13px">Ultimo run: <span id="lastRun">mai</span></div>
+      </div>
+    </aside>
+
+    <!-- RESULTS -->
+    <section class="results">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h2 style="margin:0 0 6px 0">Risultati statistici</h2>
+            <div class="muted">Mediana e intervallo di confidenza al 95%</div>
+          </div>
+        </div>
+        <div class="summary-grid" style="margin-top:12px">
+          <div class="metric">
+           <h3>Capitale versato</h3>
+           <p id="TotalCapital">—</p>
+          </div>
+	  <div class="metric">
+           <h3>Probabilità di perdere capitale</h3>
+           <p id="probLoss">—</p>
+          </div>
+          <div class="metric">
+            <h3>Capitale finale (mediano)</h3>
+            <p id="medianCapital">—</p>
+          </div>
+          <div class="metric">
+            <h3>Intervallo 95% (capitale)</h3>
+            <p id="intervalCapital">—</p>
+          </div>
+          <div class="metric">
+            <h3>Drawdown mediano</h3>
+            <p id="medianDD">—</p>
+            <small style="display:block; color:#666; font-size:0.6em; margin-top:4px;">
+              Il drawdown percentuale è calcolato come la perdita massima rispetto al capitale massimo raggiunto in precedenza.
+            </small>
+          </div>
+          <div class="metric">
+            <h3>Intervallo 95% (drawdown)</h3>
+            <p id="intervalDD" style="font-size: 0.85rem;">—</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" aria-label="Grafico capitale nel tempo">
+        <h3 style="margin:0 0 10px 0">Evoluzione mediana del capitale</h3>
+        <canvas id="evolutionChart"></canvas>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
+        <div class="panel">
+          <h3 style="margin:0 0 10px 0">Distribuzione capitale finale</h3>
+          <canvas id="capitalHist"></canvas>
+        </div>
+
+        <div class="panel">
+          <h3 style="margin:0 0 10px 0">Distribuzione massimi drawdown</h3>
+          <canvas id="ddHist"></canvas>
+        </div>
+      </div>
+
+      <footer>
+        <div class="muted"><strong>Credit: Dr. Andrea Palladino e ChatGPT 5 Pro.</strong> Nota: il modello usa log-rendimenti gaussiani (geometric Brownian approximation mensile) e applica la tassazione finale sui guadagni. I risultati sono simulazioni statistiche e non previsione certa.</div>
+      </footer>
+    </section>
+  </main>
+
+<script>
+/* ---------- Utility statistiche ---------- */
+function percentile(arr, p) {
+  if (!arr.length) return 0;
+  const sorted = arr.slice().sort((a,b)=>a-b);
+  const idx = (p/100)*(sorted.length-1);
+  const low = Math.floor(idx), high = Math.ceil(idx);
+  if (low === high) return sorted[low];
+  const w = idx - low;
+  return sorted[low]*(1-w) + sorted[high]*w;
+}
+function formatCurrency(v){ return v.toLocaleString('it-IT', {style:'currency',currency:'EUR',maximumFractionDigits:0}); }
+function formatPct(v){ return (v*100).toFixed(1) + '%'; }
+
+/* ---------- Chart handlers (global to allow destroy) ---------- */
+let capitalHistChart = null, ddHistChart = null, evolutionChart = null;
+
+/* ---------- Destroys charts if exist ---------- */
+function destroyChart(ch){
+  if (ch && ch.destroy) ch.destroy();
+}
+
+/* ---------- Gaussian RNG (Box-Muller) ---------- */
+function gaussianRandom(){ 
+  let u=0,v=0;
+  while(u===0) u=Math.random();
+  while(v===0) v=Math.random();
+  return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+}
+
+/* ---------- Main simulation ---------- */
+async function runSimulation(){
+  // read inputs
+  const initial = parseFloat(document.getElementById('initial').value) || 0;
+  const monthly0 = parseFloat(document.getElementById('monthly').value) || 0;
+  const years = Math.max(1, parseInt(document.getElementById('years').value) || 1);
+  const meanAnn = parseFloat(document.getElementById('mean').value)/100 || 0;
+  const stdAnn = parseFloat(document.getElementById('stddev').value)/100 || 0;
+  const inflation = parseFloat(document.getElementById('inflation').value)/100 || 0;
+  const applyInfl = document.getElementById('applyInflation').checked;
+  const taxRate = parseFloat(document.getElementById('tax').value) || 0;
+  const simulations = Math.max(100, parseInt(document.getElementById('simulations').value) || 1000);
+
+  const months = years*12;
+
+  // monthly log-return parameters
+  // convert annual arithmetic mean & std to log parameters approximation:
+  // assume annual log-mean m such that exp(m + 0.5*s^2)-1 ≈ meanAnn
+  // simpler: use µ_log ≈ meanAnn - 0.5*σ^2 (heuristic), then divide by 12
+  // monthly sigma
+  const sigmaMonthly = stdAnn / Math.sqrt(12);
+  const muMonthly = (meanAnn - 0.5 * Math.pow(stdAnn,2)) / 12;
+
+  // prepare status UI
+  const status = document.getElementById('status');
+  const statusText = document.getElementById('statusText');
+  const lastRun = document.getElementById('lastRun');
+  status.style.display = 'inline-flex';
+  statusText.textContent = 'Simulazione in corso...';
+  const runBtn = document.getElementById('runBtn');
+  runBtn.disabled = true;
+
+  // arrays to collect results
+  const finals = new Array(simulations);
+  const maxDDs = new Array(simulations);
+  const maxDDsabs = new Array(simulations);
+  // For evolution percentiles: we collect capitals per month for each simulation? That's heavy in memory but OK for moderate sims.
+  const allPaths = Array.from({length:simulations}, ()=> new Array(months+1).fill(0));
+  
+
+  // Simulate
+  for (let s=0; s<simulations; s++){
+    let capital = initial;
+    let monthly = monthly0;
+    let peak = capital;
+    let maxDD = 0;
+    let maxDDabs = 0;   // <-- aggiunto
+    allPaths[s][0] = capital;
+
+    for (let m=1; m<=months; m++){
+      // deposit at start of period
+      capital += monthly;
+
+      // sample log-return z ~ N(muMonthly, sigmaMonthly)
+      const z = muMonthly + sigmaMonthly * gaussianRandom();
+      const ret = Math.exp(z) - 1; // effective monthly return
+      capital *= (1 + ret);
+
+      // update peak and drawdown
+      if (capital > peak) peak = capital;
+      const dd = (peak - capital) / (peak || 1);
+      const ddAbs = peak - capital;                // <-- euro assoluti
+      if (dd > maxDD) maxDD = dd;
+      if (ddAbs > maxDDabs) maxDDabs = ddAbs;      // <-- aggiunto
+
+      // store
+      allPaths[s][m] = capital;
+
+      // inflation adjustment for next monthly deposit
+      if (applyInfl) monthly *= (1 + inflation / 12);
+    }
+
+    // taxation on gains (applies at the end on net gain)
+    const totalContributions = initial + monthly0 * months * (applyInfl ? (1 - Math.pow(1+inflation/12, months)) / (1 - (1+inflation/12)) : 1); 
+    // The formula above is incorrect for contributions with inflation compounding; rather than attempt closed form, compute contributions sum:
+    let contribSum = initial;
+    let mm = monthly0;
+    for (let m=0;m<months;m++){ contribSum += mm; mm *= (applyInfl? (1+inflation/12) : 1); }
+
+    const gain = capital - contribSum;
+    const taxedGain = gain > 0 ? gain * (1 - taxRate) : gain;
+    const finalCapital = contribSum + taxedGain;
+
+    finals[s] = finalCapital;
+    maxDDs[s] = maxDD;
+    maxDDsabs[s] = maxDDabs;
+  }
+
+  // compute statistics
+  const medianCap = percentile(finals,50);
+  const capLow = percentile(finals,2.5);
+  const capHigh = percentile(finals,97.5);
+
+  const medianDD = percentile(maxDDs,50);
+  const ddLow = percentile(maxDDs,2.5);
+  const ddHigh = percentile(maxDDs,97.5);
+
+  const medianDDabs = percentile(maxDDsabs, 50);
+  const ddLowAbs = percentile(maxDDsabs, 2.5);
+  const ddHighAbs = percentile(maxDDsabs, 97.5);
+
+  // Compute contribSum
+  let contribSumglobal = initial;
+  let mm = monthly0;
+  for (let m=0; m<months; m++) {
+    contribSumglobal += mm;
+    mm *= (applyInfl ? (1 + inflation/12) : 1);
+  }
+  const probLoss = finals.filter(v => v < contribSumglobal).length / finals.length;
+
+
+  // update textual UI
+  document.getElementById('TotalCapital').innerText = formatCurrency(contribSumglobal);
+  document.getElementById('probLoss').innerText = (probLoss * 100).toFixed(1) + '%';
+  document.getElementById('medianCapital').innerText = formatCurrency(medianCap);
+  document.getElementById('intervalCapital').innerText = `${formatCurrency(capLow)} — ${formatCurrency(capHigh)}`;
+  document.getElementById('medianDD').innerText = `${formatCurrency(medianDDabs)} (${formatPct(medianDD)})`;
+  document.getElementById('intervalDD').innerText = `${formatCurrency(ddLowAbs)} — ${formatCurrency(ddHighAbs)} (${(ddLow*100).toFixed(1)}% — ${(ddHigh*100).toFixed(1)}%)`;
+  
+
+
+  // prepare evolution percentiles per month (50th, 2.5th, 97.5th)
+  const medianSeries = new Array(months+1).fill(0);
+  const lowSeries = new Array(months+1).fill(0);
+  const highSeries = new Array(months+1).fill(0);
+  for (let m=0; m<=months; m++){
+    const monthVals = new Array(simulations);
+    for (let s=0; s<simulations; s++) monthVals[s] = allPaths[s][m];
+    medianSeries[m] = percentile(monthVals,50);
+    lowSeries[m] = percentile(monthVals,2.5);
+    highSeries[m] = percentile(monthVals,97.5);
+  }
+
+  // Draw charts
+  drawEvolutionChart(medianSeries, lowSeries, highSeries, months);
+  drawHistogram('capitalHist', finals, 'Capitale finale', value => value);
+  drawHistogram('ddHist', maxDDsabs, 'Max drawdown (€)', value => value);
+
+  // finalize status
+  statusText.textContent = `Terminata (${simulations} simulazioni)`;
+  lastRun.innerText = new Date().toLocaleString();
+  runBtn.disabled = false;
+  setTimeout(()=>status.style.display='none',1200);
+}
+
+/* ---------- Draw histogram using Chart.js ---------- */
+function drawHistogram(canvasId, data, label, transform = v => v) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+
+  const bins = Math.min(40, Math.max(12, Math.round(Math.sqrt(data.length))));
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const binWidth = range / bins;
+  let counts = new Array(bins).fill(0);
+  for (const v of data) {
+    let idx = Math.floor((v - min) / binWidth);
+    if (idx < 0) idx = 0;
+    if (idx >= bins) idx = bins - 1;
+    counts[idx]++;
+  }
+
+  const dataPoints = [];
+  for (let i = 0; i < bins; i++) {
+    const center = min + i * binWidth + binWidth / 2;
+    dataPoints.push({ x: center, y: counts[i] });
+  }
+
+  if (canvasId === 'capitalHist' && capitalHistChart) capitalHistChart.destroy();
+  if (canvasId === 'ddHist' && ddHistChart) ddHistChart.destroy();
+
+  const cfg = {
+    type: 'bar',
+    data: {
+      datasets: [{
+        label,
+        data: dataPoints,
+        backgroundColor: 'rgba(33, 150, 243, 0.85)',
+        borderRadius: 6,
+        barPercentage: 1.0,
+        categoryPercentage: 1.0
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              return `Conteggio: ${ctx.parsed.y}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          position: 'bottom',
+          ticks: {
+            stepSize: 20000,
+            callback: function(value) {
+              return (value / 1000) + 'k';
+            },
+            color: '#cfeefc'
+          },
+          grid: { display: false }
+        },
+        y: {
+          ticks: { color: '#cfeefc' },
+          grid: { color: 'rgba(255,255,255,0.03)' }
+        }
+      },
+      maintainAspectRatio: false
+    }
+  };
+
+  if (canvasId === 'capitalHist') capitalHistChart = new Chart(ctx, cfg);
+  if (canvasId === 'ddHist') ddHistChart = new Chart(ctx, cfg);
+}
+
+/* ---------- Evolution chart (median + 95% band) ---------- */
+function drawEvolutionChart(medianSeries, lowSeries, highSeries, months){
+  const ctx = document.getElementById('evolutionChart').getContext('2d');
+  if (evolutionChart) evolutionChart.destroy();
+
+  // etichette: mostra solo gli anni (ogni 12 mesi)
+  const labels = Array.from({length:months+1}, (_,i)=> i % 12 === 0 ? `${i/12}a` : '');
+
+  evolutionChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        // 1) lower bound -> riempie verso il prossimo dataset (upper)
+        {
+          label: 'Intervallo 95% (lower)',
+          data: lowSeries,
+          borderColor: 'rgba(18,185,130,0)',      // linea invisibile
+          backgroundColor: 'rgba(18, 185, 130, 0.10)', // colore banda
+          pointRadius: 0,
+          fill: '+1',     // riempi verso il dataset successivo (che deve essere l'upper)
+          tension: 0.25,
+          order: 1
+        },
+        // 2) upper bound -> serve a chiudere il fill sopra la lower
+        {
+          label: 'Intervallo 95% (upper)',
+          data: highSeries,
+          borderColor: 'rgba(18,185,130,0)', // linea invisibile
+          pointRadius: 0,
+          fill: false,
+          tension: 0.25,
+          order: 1
+        },
+        // 3) mediana -> disegnala per ultima (sopra la banda)
+        {
+          label: 'Mediana',
+          data: medianSeries,
+          borderWidth: 2,
+          borderColor: 'rgba(33,150,243,0.95)',
+          backgroundColor: 'rgba(33,150,243,0.04)',
+          pointRadius: 0,
+          tension: 0.3,
+          order: 2
+        }
+      ]
+    },
+    options:{
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          callbacks:{
+            label: function(ctx){
+              const v = ctx.raw;
+              return formatCurrency(v);
+            }
+          }
+        }
+      },
+      interaction: {mode:'index', intersect:false},
+      scales:{
+        x:{ ticks:{ color:'#cfeefc' }, grid:{ display:false } },
+        y:{ ticks:{ color:'#cfeefc' }, grid:{ color:'rgba(255,255,255,0.03)' } }
+      },
+      maintainAspectRatio:false
+    }
+  });
+}
+
+
+/* ---------- Setup handlers ---------- */
+document.getElementById('runBtn').addEventListener('click', runSimulation);
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  document.getElementById('initial').value = 1000;
+  document.getElementById('monthly').value = 200;
+  document.getElementById('years').value = 20;
+  document.getElementById('mean').value = 5.0;
+  document.getElementById('stddev').value = 12.0;
+  document.getElementById('inflation').value = 2.0;
+  document.getElementById('applyInflation').checked = true;
+  document.getElementById('tax').value = '0.26';
+  document.getElementById('simulations').value = 2000;
+});
+
+/* ---------- Small improvement: disable heavy runs accidentally ---------- */
+document.getElementById('simulations').addEventListener('change', (e)=>{
+  let v = parseInt(e.target.value)||100;
+  if (v>10000 && !confirm('Hai impostato più di 10.000 simulazioni — potrebbe richiedere molto tempo e memoria. Proseguire?')) {
+    e.target.value = 5000;
+  }
+});
+</script>
+</body>
+</html>

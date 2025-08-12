@@ -288,11 +288,11 @@
            <p id="probLoss">—</p>
           </div>
           <div class="metric">
-            <h3>Capitale finale (mediano)</h3>
+            <h3>Capitale finale netto (mediano)</h3>
             <p id="medianCapital">—</p>
           </div>
           <div class="metric">
-            <h3>Intervallo 95% (capitale)</h3>
+            <h3>Intervallo 95% (capitale netto)</h3>
             <p id="intervalCapital">—</p>
           </div>
           <div class="metric">
@@ -310,13 +310,13 @@
       </div>
 
       <div class="panel" aria-label="Grafico capitale nel tempo">
-        <h3 style="margin:0 0 10px 0">Evoluzione mediana del capitale</h3>
+        <h3 style="margin:0 0 10px 0">Evoluzione mediana del capitale lordo</h3>
         <canvas id="evolutionChart"></canvas>
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
         <div class="panel">
-          <h3 style="margin:0 0 10px 0">Distribuzione capitale finale</h3>
+          <h3 style="margin:0 0 10px 0">Distribuzione capitale finale netto</h3>
           <canvas id="capitalHist"></canvas>
         </div>
 
@@ -463,13 +463,19 @@ async function runSimulation(){
   const ddLowAbs = percentile(maxDDsabs, 2.5);
   const ddHighAbs = percentile(maxDDsabs, 97.5);
 
-  // Compute contribSum
-  let contribSumglobal = initial;
-  let mm = monthly0;
-  for (let m=0; m<months; m++) {
-    contribSumglobal += mm;
-    mm *= (applyInfl ? (1 + inflation/12) : 1);
-  }
+  // Calcola la serie cumulativa del capitale investito mese per mese
+  const investedSeries = [initial];
+  let invested = initial;
+  for (let m = 1; m <= months; m++) {
+       let monthly = monthly0 * (applyInfl ? Math.pow(1 + inflation / 12, m - 1) : 1);
+       invested += monthly;
+       investedSeries.push(invested);
+      }
+
+  // Capitale investito totale finale
+  const contribSumglobal = investedSeries[months];
+
+  // Probabilità di perdita (finali < capitale investito)
   const probLoss = finals.filter(v => v < contribSumglobal).length / finals.length;
 
 
@@ -496,7 +502,7 @@ async function runSimulation(){
   }
 
   // Draw charts
-  drawEvolutionChart(medianSeries, lowSeries, highSeries, months);
+  drawEvolutionChart(medianSeries, lowSeries, highSeries, investedSeries, months);
   drawHistogram('capitalHist', finals, 'Capitale finale', value => value);
   drawHistogram('ddHist', maxDDsabs, 'Max drawdown (€)', value => value);
 
@@ -584,7 +590,7 @@ function drawHistogram(canvasId, data, label, transform = v => v) {
 }
 
 /* ---------- Evolution chart (median + 95% band) ---------- */
-function drawEvolutionChart(medianSeries, lowSeries, highSeries, months){
+function drawEvolutionChart(medianSeries, lowSeries, highSeries, investedSeries, months){
   const ctx = document.getElementById('evolutionChart').getContext('2d');
   if (evolutionChart) evolutionChart.destroy();
 
@@ -627,7 +633,16 @@ function drawEvolutionChart(medianSeries, lowSeries, highSeries, months){
           pointRadius: 0,
           tension: 0.3,
           order: 2
-        }
+        },
+        {
+  	  label: 'Capitale investito',
+ 	  data: investedSeries,
+ 	  borderColor: 'rgba(200, 100, 50, 0.8)',
+  	  borderWidth: 1,
+ 	  pointRadius: 0,
+  	  fill: false,
+  	  order: 3
+	},
       ]
     },
     options:{

@@ -200,7 +200,7 @@
 
       <div class="form-row">
         <label for="initial">Versamento iniziale (€)</label>
-        <input id="initial" type="number" min="0" value="1000" />
+        <input id="initial" type="number" min="0" value="5000" />
       </div>
 
       <div class="form-row">
@@ -220,7 +220,7 @@
 
       <div class="form-row">
         <label for="mean">Rendimento medio atteso annuo (%)</label>
-        <input id="mean" type="number" step="0.01" value="5.0" />
+        <input id="mean" type="number" step="0.01" value="6.0" />
       </div>
 
       <div class="form-row">
@@ -245,8 +245,16 @@
         <select id="tax" style="color:#333; background-color:#fff;">
   	  <option value="0">0%</option>
   	  <option value="0.125">12.5%</option>
-  	  <option value="0.26">26%</option>
+  	  <option value="0.26" selected>26%</option>
 	</select>
+      </div>
+
+      <div class="form-row">
+        <label for="stampDuty">Imposta di bollo annua</label>
+        <select id="stampDuty" style="color:#333; background-color:#fff;">
+          <option value="0">0%</option>
+          <option value="0.002" selected>0.2%</option>
+        </select>
       </div>
 
       <div class="form-row">
@@ -288,11 +296,11 @@
            <p id="probLoss">—</p>
           </div>
           <div class="metric">
-            <h3>Capitale finale (mediano)</h3>
+            <h3>Capitale finale netto (mediano)</h3>
             <p id="medianCapital">—</p>
           </div>
           <div class="metric">
-            <h3>Intervallo 95% (capitale)</h3>
+            <h3>Intervallo 95% (capitale netto)</h3>
             <p id="intervalCapital">—</p>
           </div>
           <div class="metric">
@@ -310,13 +318,13 @@
       </div>
 
       <div class="panel" aria-label="Grafico capitale nel tempo">
-        <h3 style="margin:0 0 10px 0">Evoluzione mediana del capitale</h3>
+        <h3 style="margin:0 0 10px 0">Evoluzione mediana del capitale lordo</h3>
         <canvas id="evolutionChart"></canvas>
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
         <div class="panel">
-          <h3 style="margin:0 0 10px 0">Distribuzione capitale finale</h3>
+          <h3 style="margin:0 0 10px 0">Distribuzione capitale finale netto</h3>
           <canvas id="capitalHist"></canvas>
         </div>
 
@@ -373,6 +381,7 @@ async function runSimulation(){
   const inflation = parseFloat(document.getElementById('inflation').value)/100 || 0;
   const applyInfl = document.getElementById('applyInflation').checked;
   const taxRate = parseFloat(document.getElementById('tax').value) || 0;
+  const stampDutyRate = parseFloat(document.getElementById('stampDuty').value) || 0;
   const simulations = Math.max(100, parseInt(document.getElementById('simulations').value) || 1000);
 
   const months = years*12;
@@ -420,6 +429,12 @@ async function runSimulation(){
       const ret = Math.exp(z) - 1; // effective monthly return
       capital *= (1 + ret);
 
+      // qui applichiamo imposta di bollo trimestrale se selezionata
+      if (stampDutyRate > 0 && m > 0 && m % 3 === 0) {
+        const quarterlyStampDuty = capital * (stampDutyRate / 4);
+        capital -= quarterlyStampDuty;
+      }
+
       // update peak and drawdown
       if (capital > peak) peak = capital;
       const dd = (peak - capital) / (peak || 1);
@@ -435,8 +450,6 @@ async function runSimulation(){
     }
 
     // taxation on gains (applies at the end on net gain)
-    const totalContributions = initial + monthly0 * months * (applyInfl ? (1 - Math.pow(1+inflation/12, months)) / (1 - (1+inflation/12)) : 1); 
-    // The formula above is incorrect for contributions with inflation compounding; rather than attempt closed form, compute contributions sum:
     let contribSum = initial;
     let mm = monthly0;
     for (let m=0;m<months;m++){ contribSum += mm; mm *= (applyInfl? (1+inflation/12) : 1); }
@@ -463,13 +476,19 @@ async function runSimulation(){
   const ddLowAbs = percentile(maxDDsabs, 2.5);
   const ddHighAbs = percentile(maxDDsabs, 97.5);
 
-  // Compute contribSum
-  let contribSumglobal = initial;
-  let mm = monthly0;
-  for (let m=0; m<months; m++) {
-    contribSumglobal += mm;
-    mm *= (applyInfl ? (1 + inflation/12) : 1);
-  }
+  // Calcola la serie cumulativa del capitale investito mese per mese
+  const investedSeries = [initial];
+  let invested = initial;
+  for (let m = 1; m <= months; m++) {
+       let monthly = monthly0 * (applyInfl ? Math.pow(1 + inflation / 12, m - 1) : 1);
+       invested += monthly;
+       investedSeries.push(invested);
+      }
+
+  // Capitale investito totale finale
+  const contribSumglobal = investedSeries[months];
+
+  // Probabilità di perdita (finali < capitale investito)
   const probLoss = finals.filter(v => v < contribSumglobal).length / finals.length;
 
 
@@ -496,7 +515,7 @@ async function runSimulation(){
   }
 
   // Draw charts
-  drawEvolutionChart(medianSeries, lowSeries, highSeries, months);
+  drawEvolutionChart(medianSeries, lowSeries, highSeries, investedSeries, months);
   drawHistogram('capitalHist', finals, 'Capitale finale', value => value);
   drawHistogram('ddHist', maxDDsabs, 'Max drawdown (€)', value => value);
 
@@ -584,7 +603,7 @@ function drawHistogram(canvasId, data, label, transform = v => v) {
 }
 
 /* ---------- Evolution chart (median + 95% band) ---------- */
-function drawEvolutionChart(medianSeries, lowSeries, highSeries, months){
+function drawEvolutionChart(medianSeries, lowSeries, highSeries, investedSeries, months){
   const ctx = document.getElementById('evolutionChart').getContext('2d');
   if (evolutionChart) evolutionChart.destroy();
 
@@ -627,7 +646,16 @@ function drawEvolutionChart(medianSeries, lowSeries, highSeries, months){
           pointRadius: 0,
           tension: 0.3,
           order: 2
-        }
+        },
+        {
+  	  label: 'Capitale investito',
+ 	  data: investedSeries,
+ 	  borderColor: 'rgba(200, 100, 50, 0.8)',
+  	  borderWidth: 1,
+ 	  pointRadius: 0,
+  	  fill: false,
+  	  order: 3
+	},
       ]
     },
     options:{
